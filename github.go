@@ -890,56 +890,60 @@ func (c *Client) ListReposOnlyBylanguage(lang string) ([]*github.Repository, err
 
 	client := c.client
 
-	opt := &github.SearchOptions{
-		ListOptions: github.ListOptions{PerPage: 100},
-	}
-	// get all pages of results
-	var allRepos []*github.Repository
-	for {
-		var repos *github.RepositoriesSearchResult
-		var resp *github.Response
-		errs := RetryExponentialBackoff(9999, time.Second, func() error {
-			var err error
+	sortTypes := [3]string{"forks", "stars", "updated"}
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
+	for _, sortType := range sortTypes {
+		opt := &github.SearchOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+			Sort: sortType
+		}
+		// get all pages of results
+		var allRepos []*github.Repository
+		for {
+			var repos *github.RepositoriesSearchResult
+			var resp *github.Response
+			errs := RetryExponentialBackoff(9999, time.Second, func() error {
+				var err error
 
-			repos, resp, err = client.Search.Repositories(ctx, query, opt)
-			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+				defer cancel()
+
+				repos, resp, err = client.Search.Repositories(ctx, query, opt)
+				if err != nil {
+					return fmt.Errorf("error while executing request: %s", err)
+				}
+				ResponseCallback(resp)
+				if handleRateLimitError(err, resp) {
+					return err
+				}
+
+				if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+					// TODO: catch rate limit error, and wait
+					return fmt.Errorf(
+						"status code is: %v (%s)",
+						resp.StatusCode,
+						resp.Status,
+					)
+				}
+				// nil on 200 and 404
+				return nil
+			})
+			if errs != nil && len(errs) > 0 {
+				return nil, errors.New(FormatErrorArray("", errs))
 			}
-			ResponseCallback(resp)
-			if handleRateLimitError(err, resp) {
-				return err
-			}
-
-			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+			if resp.StatusCode == http.StatusNotFound {
 				// TODO: catch rate limit error, and wait
-				return fmt.Errorf(
-					"status code is: %v (%s)",
-					resp.StatusCode,
-					resp.Status,
-				)
+				return nil, ErrNotFound
 			}
-			// nil on 200 and 404
-			return nil
-		})
-		if errs != nil && len(errs) > 0 {
-			return nil, errors.New(FormatErrorArray("", errs))
-		}
-		if resp.StatusCode == http.StatusNotFound {
-			// TODO: catch rate limit error, and wait
-			return nil, ErrNotFound
-		}
 
-		for repIndex := range repos.Repositories {
-			allRepos = append(allRepos, &repos.Repositories[repIndex])
+			for repIndex := range repos.Repositories {
+				allRepos = append(allRepos, &repos.Repositories[repIndex])
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
 		}
-		if resp.NextPage == 0 {
-			break
-		}
-		opt.Page = resp.NextPage
 	}
-
 	return allRepos, nil
 }
