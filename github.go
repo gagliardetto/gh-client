@@ -1025,7 +1025,6 @@ GetterLoop:
 // NOTE: the repo search API does not search inside the repo contents.
 func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 
-	query := Sf("%q", search)
 
 	client := c.client
 
