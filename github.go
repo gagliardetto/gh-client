@@ -1097,7 +1097,7 @@ func (c *Client) SearchCode(query string) ([]*github.Repository, error) {
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
 	// get all pages of results
-	var allRepos []*github.Repository
+	var allCodeResults []*github.CodeResult
 	for {
 		var repos *github.CodeSearchResult
 		var resp *github.Response
@@ -1136,7 +1136,7 @@ func (c *Client) SearchCode(query string) ([]*github.Repository, error) {
 		}
 
 		for repIndex := range repos.CodeResults {
-			allRepos = append(allRepos, &repos.CodeResults[repIndex].Repository) // to get the actual Repository, not CodeResult ¿?
+			allCodeResults = append(allCodeResults, &repos.CodeResults[repIndex].Repository) // to get the actual Repository, not CodeResult ¿?
 		}
 		if resp.NextPage == 0 {
 			break
@@ -1144,5 +1144,5 @@ func (c *Client) SearchCode(query string) ([]*github.Repository, error) {
 		opt.Page = resp.NextPage
 	}
 
-	return allRepos, nil
+	return allCodeResults, nil
 }
