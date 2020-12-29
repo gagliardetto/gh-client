@@ -903,6 +903,8 @@ func (opts *ListReposOnlyBylanguageOpts) Validate() error {
 	return nil
 }
 
+// ListReposOnlyBylanguage returns (almost) all repositories
+// that contain code in the specified language.
 func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -998,6 +1000,7 @@ GetterLoop:
 			// that means there's more than 1K repos with that specific star count,
 			// but we can't get more than 1K;
 			// we can only retrieve the first 1K of repos with any specific star count.
+
 			// If starLowerBound is zero, it means we can't go any lower, and we're done:
 			if starLowerBound == 0 {
 				break GetterLoop
@@ -1024,7 +1027,10 @@ GetterLoop:
 }
 
 // SearchRepos will return a list of repos that match the provided query.
-// NOTE: the repo search API does not search inside the repo contents.
+// NOTE: the repo search API does not search inside the repo contents,
+// but only in its meta (repo name, description, etc.)
+// For more info about query syntax and parameters, see:
+// https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
 func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 
 	client := c.client
