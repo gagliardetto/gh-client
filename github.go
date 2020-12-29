@@ -924,7 +924,7 @@ func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]*
 	var (
 		latestStarCount int
 		useStarBound    bool
-		starLowerBound  int
+		starLowerBound  int = -1 // Setting it to -1 to mean a non-written value.
 	)
 
 	// get all pages of results
