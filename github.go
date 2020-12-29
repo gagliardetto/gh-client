@@ -1021,7 +1021,9 @@ GetterLoop:
 
 	return allRepos, nil
 }
-func (c *Client) ListReposByCustomSearch(search string) ([]*github.Repository, error) {
+// SearchRepos will return a list of repos that match the provided query.
+// NOTE: the repo search API does not search inside the repo contents.
+func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 
 	query := Sf("%q", search)
 
