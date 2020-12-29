@@ -997,6 +997,10 @@ GetterLoop:
 			// that means there's more than 1K repos with that specific star count,
 			// but we can't get more than 1K;
 			// we can only retrieve the first 1K of repos with any specific star count.
+			// If starLowerBound is zero, it means we can't go any lower, and we're done:
+			if starLowerBound == 0 {
+				break GetterLoop
+			}
 
 			useStarBound = true
 			if starLowerBound == latestStarCount {
