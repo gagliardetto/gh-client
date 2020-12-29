@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/gagliardetto/hashsearch"
 	. "github.com/gagliardetto/utilz"
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/google/go-github/github"
@@ -1021,10 +1022,10 @@ GetterLoop:
 
 	return allRepos, nil
 }
+
 // SearchRepos will return a list of repos that match the provided query.
 // NOTE: the repo search API does not search inside the repo contents.
 func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
-
 
 	client := c.client
 
