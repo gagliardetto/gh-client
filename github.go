@@ -384,10 +384,10 @@ func (r *RepoExplorationRequest) WithStartPath(path string) *RepoExplorationRequ
 	return r
 }
 
-func (r *RepoExplorationRequest) DownloadFile(filepath string) (io.ReadCloser, *github.Response, error) {
+func (r *RepoExplorationRequest) DownloadFile(filepath string) (io.ReadCloser, error) {
 	err := r.Validate()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	r.params.path = filepath
@@ -404,7 +404,7 @@ func (r *RepoExplorationRequest) ListContents(path string) (fileContent *github.
 	return r.client.client.Repositories.GetContents(context.Background(), r.params.owner, r.params.repo, r.params.path, nil)
 }
 
-func (r *RepoExplorationRequest) DownloadContent(v *github.RepositoryContent) (io.ReadCloser, *github.Response, error) {
+func (r *RepoExplorationRequest) DownloadContent(v *github.RepositoryContent) (io.ReadCloser, error) {
 	owner, repo, path := extractOwnerRepoPath(v)
 	return r.WithOwner(owner).WithRepo(repo).DownloadFile(path)
 }
@@ -825,7 +825,7 @@ func (c *Client) ListLanguagesOfRepo(owner string, repo string) (map[string]int,
 
 	return languages, nil
 }
-func (c *Client) ListReposBylanguage(owner string, lang string) ([]**github.Repository, error) {
+func (c *Client) ListReposBylanguage(owner string, lang string) ([]*github.Repository, error) {
 
 	query := Sf("user:%q language:%q", owner, ToTitle(lang))
 
@@ -835,7 +835,7 @@ func (c *Client) ListReposBylanguage(owner string, lang string) ([]**github.Repo
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
 	// get all pages of results
-	var allRepos []**github.Repository
+	var allRepos []*github.Repository
 	for {
 		var repos *github.RepositoriesSearchResult
 		var resp *github.Response
@@ -905,7 +905,7 @@ func (opts *ListReposOnlyBylanguageOpts) Validate() error {
 
 // ListReposOnlyBylanguage returns (almost) all repositories
 // that contain code in the specified language.
-func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]**github.Repository, error) {
+func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
@@ -931,7 +931,7 @@ func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]*
 	)
 
 	// get all pages of results
-	var allRepos []**github.Repository
+	var allRepos []*github.Repository
 GetterLoop:
 	for {
 		var repos *github.RepositoriesSearchResult
@@ -1031,7 +1031,7 @@ GetterLoop:
 // but only in its meta (repo name, description, etc.)
 // For more info about query syntax and parameters, see:
 // https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
-func (c *Client) SearchRepos(query string) ([]**github.Repository, error) {
+func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 
 	client := c.client
 
@@ -1039,7 +1039,7 @@ func (c *Client) SearchRepos(query string) ([]**github.Repository, error) {
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
 	// get all pages of results
-	var allRepos []**github.Repository
+	var allRepos []*github.Repository
 	for {
 		var repos *github.RepositoriesSearchResult
 		var resp *github.Response
@@ -1089,7 +1089,7 @@ func (c *Client) SearchRepos(query string) ([]**github.Repository, error) {
 	return allRepos, nil
 }
 
-func (c *Client) SearchCode(query string) ([]**github.CodeResult, error) {
+func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
 
 	client := c.client
 
@@ -1097,7 +1097,7 @@ func (c *Client) SearchCode(query string) ([]**github.CodeResult, error) {
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
 	// get all pages of results
-	var allCodeResults []**github.CodeResult
+	var allCodeResults []*github.CodeResult
 	for {
 		var repos *github.CodeSearchResult
 		var resp *github.Response
@@ -1136,7 +1136,7 @@ func (c *Client) SearchCode(query string) ([]**github.CodeResult, error) {
 		}
 
 		for repIndex := range repos.CodeResults {
-			allCodeResults = append(allCodeResults, &repos.CodeResults[repIndex]) // to get the actual Repository, not CodeResult ¿?
+			allCodeResults = append(allCodeResults, &repos.CodeResults[repIndex])
 		}
 		if resp.NextPage == 0 {
 			break
