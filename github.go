@@ -885,15 +885,15 @@ func (c *Client) ListReposBylanguage(owner string, lang string) ([]*github.Repos
 	return allRepos, nil
 }
 
-type ListReposOnlyBylanguageOpts struct {
+type ListAllReposByLanguageOpts struct {
 	Language     string
 	ExcludeForks bool
 	MinStars     int
 	Limit        int
 }
 
-// Validate validates ListReposOnlyBylanguageOpts.
-func (opts *ListReposOnlyBylanguageOpts) Validate() error {
+// Validate validates ListAllReposByLanguageOpts.
+func (opts *ListAllReposByLanguageOpts) Validate() error {
 	if opts == nil {
 		return errors.New("opts is nil.")
 	}
@@ -905,7 +905,7 @@ func (opts *ListReposOnlyBylanguageOpts) Validate() error {
 
 // ListAllReposByLanguage returns a list of (almost) all repositories
 // that contain code in the specified language.
-func (c *Client) ListAllReposByLanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
+func (c *Client) ListAllReposByLanguage(opts *ListAllReposByLanguageOpts) ([]*github.Repository, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
