@@ -903,9 +903,9 @@ func (opts *ListReposOnlyBylanguageOpts) Validate() error {
 	return nil
 }
 
-// ListReposOnlyBylanguage returns (almost) all repositories
+// ListAllReposByLanguage returns a list of (almost) all repositories
 // that contain code in the specified language.
-func (c *Client) ListReposOnlyBylanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
+func (c *Client) ListAllReposByLanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
@@ -1029,6 +1029,7 @@ GetterLoop:
 // SearchRepos will return a list of repos that match the provided query.
 // NOTE: the repo search API does not search inside the repo contents,
 // but only in its meta (repo name, description, etc.)
+// To search repos by content, see `SearchCode` method.
 // For more info about query syntax and parameters, see:
 // https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
 func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
@@ -1089,6 +1090,9 @@ func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 	return allRepos, nil
 }
 
+// SearchCode will return a list of code results that match the provided query.
+// For more info about query syntax and parameters, see:
+// https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-code
 func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
 
 	client := c.client
