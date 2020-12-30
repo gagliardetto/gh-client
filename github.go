@@ -898,7 +898,7 @@ func (opts *ListAllReposByLanguageOpts) Validate() error {
 		return errors.New("opts is nil.")
 	}
 	if opts.Language == "" {
-		return errors.New("Language not specified.")
+		return errors.New("opts.Language not provided.")
 	}
 	return nil
 }
@@ -1026,13 +1026,33 @@ GetterLoop:
 	return allRepos, nil
 }
 
+type SearchReposOpts struct {
+	Query    string
+	MinStars int
+	Limit    int
+}
+
+// Validate validates SearchReposOpts.
+func (opts *SearchReposOpts) Validate() error {
+	if opts == nil {
+		return errors.New("opts is nil.")
+	}
+	if opts.Query == "" {
+		return errors.New("opts.Query not provided.")
+	}
+	return nil
+}
+
 // SearchRepos will return a list of repos that match the provided query.
 // NOTE: the repo search API does not search inside the repo contents,
 // but only in its meta (repo name, description, etc.)
 // To search repos by content, see `SearchCode` method.
 // For more info about query syntax and parameters, see:
 // https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
-func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
+func (c *Client) SearchRepos(opts *SearchReposOpts) ([]*github.Repository, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
 
 	client := c.client
 
@@ -1041,6 +1061,7 @@ func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 	}
 	// get all pages of results
 	var allRepos []*github.Repository
+GetterLoop:
 	for {
 		var repos *github.RepositoriesSearchResult
 		var resp *github.Response
@@ -1050,7 +1071,7 @@ func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
 
-			repos, resp, err = client.Search.Repositories(ctx, query, opt)
+			repos, resp, err = client.Search.Repositories(ctx, opts.Query, opt)
 			if err != nil {
 				return fmt.Errorf("error while executing request: %s", err)
 			}
@@ -1079,7 +1100,15 @@ func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 		}
 
 		for repIndex := range repos.Repositories {
-			allRepos = append(allRepos, &repos.Repositories[repIndex])
+			repo := &repos.Repositories[repIndex]
+			if repo.GetStargazersCount() < opts.MinStars {
+				continue
+			}
+			allRepos = append(allRepos, repo)
+
+			if opts.Limit > 0 && len(allRepos) >= opts.Limit {
+				break GetterLoop
+			}
 		}
 		if resp.NextPage == 0 {
 			break
@@ -1090,10 +1119,29 @@ func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
 	return allRepos, nil
 }
 
+type SearchCodeOpts struct {
+	Query string
+	Limit int
+}
+
+// Validate validates SearchCodeOpts.
+func (opts *SearchCodeOpts) Validate() error {
+	if opts == nil {
+		return errors.New("opts is nil.")
+	}
+	if opts.Query == "" {
+		return errors.New("opts.Query not provided.")
+	}
+	return nil
+}
+
 // SearchCode will return a list of code results that match the provided query.
 // For more info about query syntax and parameters, see:
 // https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-code
-func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
+func (c *Client) SearchCode(opts *SearchCodeOpts) ([]*github.CodeResult, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
 
 	client := c.client
 
@@ -1102,6 +1150,7 @@ func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
 	}
 	// get all pages of results
 	var allCodeResults []*github.CodeResult
+GetterLoop:
 	for {
 		var repos *github.CodeSearchResult
 		var resp *github.Response
@@ -1111,7 +1160,7 @@ func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
 
-			repos, resp, err = client.Search.Code(ctx, query, opt)
+			repos, resp, err = client.Search.Code(ctx, opts.Query, opt)
 			if err != nil {
 				return fmt.Errorf("error while executing request: %s", err)
 			}
@@ -1141,6 +1190,10 @@ func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
 
 		for repIndex := range repos.CodeResults {
 			allCodeResults = append(allCodeResults, &repos.CodeResults[repIndex])
+
+			if opts.Limit > 0 && len(allCodeResults) >= opts.Limit {
+				break GetterLoop
+			}
 		}
 		if resp.NextPage == 0 {
 			break
