@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"github.com/gagliardetto/hashsearch"
 	. "github.com/gagliardetto/utilz"
 	validation "github.com/go-ozzo/ozzo-validation"
 	"github.com/google/go-github/github"
@@ -882,4 +883,270 @@ func (c *Client) ListReposBylanguage(owner string, lang string) ([]*github.Repos
 	}
 
 	return allRepos, nil
+}
+
+type ListReposOnlyBylanguageOpts struct {
+	Language     string
+	ExcludeForks bool
+	MinStars     int
+	Limit        int
+}
+
+// Validate validates ListReposOnlyBylanguageOpts.
+func (opts *ListReposOnlyBylanguageOpts) Validate() error {
+	if opts == nil {
+		return errors.New("opts is nil.")
+	}
+	if opts.Language == "" {
+		return errors.New("Language not specified.")
+	}
+	return nil
+}
+
+// ListAllReposByLanguage returns a list of (almost) all repositories
+// that contain code in the specified language.
+func (c *Client) ListAllReposByLanguage(opts *ListReposOnlyBylanguageOpts) ([]*github.Repository, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	queryFragments := make([]string, 0)
+	queryFragments = append(queryFragments, Sf("language:%q", ToTitle(opts.Language)))
+	if opts.ExcludeForks {
+		queryFragments = append(queryFragments, "fork:false")
+	}
+
+	client := c.client
+
+	opt := &github.SearchOptions{
+		Sort:        "stars", // Sort by stargazer count.
+		ListOptions: github.ListOptions{PerPage: 100},
+	}
+	storeIndex := hashsearch.New()
+
+	var (
+		latestStarCount int
+		useStarBound    bool
+		starLowerBound  int = -1 // Setting it to -1 to mean a non-written value.
+	)
+
+	// get all pages of results
+	var allRepos []*github.Repository
+GetterLoop:
+	for {
+		var repos *github.RepositoriesSearchResult
+		var resp *github.Response
+		errs := RetryExponentialBackoff(9999, time.Second, func() error {
+			var err error
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+
+			query := strings.Join(queryFragments, " ")
+			if useStarBound {
+				withBound := append(queryFragments, Sf("stars:<=%v", starLowerBound))
+				query = strings.Join(withBound, " ")
+			}
+
+			repos, resp, err = client.Search.Repositories(ctx, query, opt)
+			if err != nil {
+				return fmt.Errorf("error while executing request: %s", err)
+			}
+			ResponseCallback(resp)
+			if handleRateLimitError(err, resp) {
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+				// TODO: catch rate limit error, and wait
+				return fmt.Errorf(
+					"status code is: %v (%s)",
+					resp.StatusCode,
+					resp.Status,
+				)
+			}
+			// nil on 200 and 404
+			return nil
+		})
+		if errs != nil && len(errs) > 0 {
+			return nil, errors.New(FormatErrorArray("", errs))
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			// TODO: catch rate limit error, and wait
+			return nil, ErrNotFound
+		}
+		for repIndex := range repos.Repositories {
+			repo := &repos.Repositories[repIndex]
+
+			if repo.GetStargazersCount() < opts.MinStars {
+				break GetterLoop
+			}
+			id := repo.GetFullName()
+
+			if !storeIndex.Has(id) {
+				latestStarCount = repo.GetStargazersCount()
+
+				allRepos = append(allRepos, repo)
+				storeIndex.OrderedAppend(id)
+
+				if opts.Limit > 0 && len(allRepos) >= opts.Limit {
+					break GetterLoop
+				}
+			}
+		}
+		if resp.NextPage == 0 {
+			// If we finished all the pages (10 x 100 results = 1K repos),
+			// but the starLowerBound did not get lower,
+			// that means there's more than 1K repos with that specific star count,
+			// but we can't get more than 1K;
+			// we can only retrieve the first 1K of repos with any specific star count.
+
+			// If starLowerBound is zero, it means we can't go any lower, and we're done:
+			if starLowerBound == 0 {
+				break GetterLoop
+			}
+
+			useStarBound = true
+			if starLowerBound == latestStarCount {
+				// For any given starLowerBound, we can only retrieve the first 1K repos.
+				// For this particular starLowerBound,
+				// there are more than 1K repos.
+
+				// Let's decrement starLowerBound by one.
+				// This will skip any repo with that specific star count beyond the initial 1K repos that we already got.
+				latestStarCount--
+			}
+			starLowerBound = latestStarCount
+			opt.Page = 1 // Restart
+			continue GetterLoop
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allRepos, nil
+}
+
+// SearchRepos will return a list of repos that match the provided query.
+// NOTE: the repo search API does not search inside the repo contents,
+// but only in its meta (repo name, description, etc.)
+// To search repos by content, see `SearchCode` method.
+// For more info about query syntax and parameters, see:
+// https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-for-repositories
+func (c *Client) SearchRepos(query string) ([]*github.Repository, error) {
+
+	client := c.client
+
+	opt := &github.SearchOptions{
+		ListOptions: github.ListOptions{PerPage: 100},
+	}
+	// get all pages of results
+	var allRepos []*github.Repository
+	for {
+		var repos *github.RepositoriesSearchResult
+		var resp *github.Response
+		errs := RetryExponentialBackoff(9999, time.Second, func() error {
+			var err error
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+
+			repos, resp, err = client.Search.Repositories(ctx, query, opt)
+			if err != nil {
+				return fmt.Errorf("error while executing request: %s", err)
+			}
+			ResponseCallback(resp)
+			if handleRateLimitError(err, resp) {
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+				// TODO: catch rate limit error, and wait
+				return fmt.Errorf(
+					"status code is: %v (%s)",
+					resp.StatusCode,
+					resp.Status,
+				)
+			}
+			// nil on 200 and 404
+			return nil
+		})
+		if errs != nil && len(errs) > 0 {
+			return nil, errors.New(FormatErrorArray("", errs))
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			// TODO: catch rate limit error, and wait
+			return nil, ErrNotFound
+		}
+
+		for repIndex := range repos.Repositories {
+			allRepos = append(allRepos, &repos.Repositories[repIndex])
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allRepos, nil
+}
+
+// SearchCode will return a list of code results that match the provided query.
+// For more info about query syntax and parameters, see:
+// https://docs.github.com/en/free-pro-team@latest/github/searching-for-information-on-github/searching-code
+func (c *Client) SearchCode(query string) ([]*github.CodeResult, error) {
+
+	client := c.client
+
+	opt := &github.SearchOptions{
+		ListOptions: github.ListOptions{PerPage: 100},
+	}
+	// get all pages of results
+	var allCodeResults []*github.CodeResult
+	for {
+		var repos *github.CodeSearchResult
+		var resp *github.Response
+		errs := RetryExponentialBackoff(9999, time.Second, func() error {
+			var err error
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+
+			repos, resp, err = client.Search.Code(ctx, query, opt)
+			if err != nil {
+				return fmt.Errorf("error while executing request: %s", err)
+			}
+			ResponseCallback(resp)
+			if handleRateLimitError(err, resp) {
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+				// TODO: catch rate limit error, and wait
+				return fmt.Errorf(
+					"status code is: %v (%s)",
+					resp.StatusCode,
+					resp.Status,
+				)
+			}
+			// nil on 200 and 404
+			return nil
+		})
+		if errs != nil && len(errs) > 0 {
+			return nil, errors.New(FormatErrorArray("", errs))
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			// TODO: catch rate limit error, and wait
+			return nil, ErrNotFound
+		}
+
+		for repIndex := range repos.CodeResults {
+			allCodeResults = append(allCodeResults, &repos.CodeResults[repIndex])
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allCodeResults, nil
 }
