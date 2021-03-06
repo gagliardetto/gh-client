@@ -80,7 +80,7 @@ func (c *Client) ListReposByUser(user string) ([]*github.Repository, error) {
 
 			repos, resp, err = client.Repositories.List(ctx, user, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -135,7 +135,7 @@ func (c *Client) ListReposByOrg(org string) ([]*github.Repository, error) {
 
 			repos, resp, err = client.Repositories.ListByOrg(ctx, org, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -204,7 +204,7 @@ func (c *Client) GetOrg(org string) (*github.Organization, error) {
 
 		organization, resp, err = c.client.Organizations.Get(ctx, org)
 		if err != nil {
-			return fmt.Errorf("error while executing request: %s", err)
+			return fmt.Errorf("error while executing request: %w", err)
 		}
 		ResponseCallback(resp)
 		if handleRateLimitError(err, resp) {
@@ -246,7 +246,7 @@ func (c *Client) GetUser(u string) (*github.User, error) {
 
 		user, resp, err = c.client.Users.Get(ctx, u)
 		if err != nil {
-			return fmt.Errorf("error while executing request: %s", err)
+			return fmt.Errorf("error while executing request: %w", err)
 		}
 		ResponseCallback(resp)
 		if handleRateLimitError(err, resp) {
@@ -305,7 +305,7 @@ func (c *Client) ListOfficialMembers(org string) ([]*github.User, error) {
 
 			resp, err = client.Do(ctx, req, &members)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -503,7 +503,7 @@ func (c *Client) ListOrgsOfUser(user string) ([]*github.Organization, error) {
 
 			orgs, resp, err = client.Organizations.List(ctx, user, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -563,7 +563,7 @@ func (c *Client) ListContributors(
 				ListOptions: *opt,
 			})
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -655,7 +655,7 @@ PageLister:
 			options.ListOptions = *opt
 			commits, resp, err = client.Repositories.ListCommits(ctx, owner, repo, options)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -712,7 +712,7 @@ func (c *Client) FindShadowMembersByContributions(
 
 	contributors, err := c.ListContributors(owner, repo)
 	if err != nil {
-		return nil, fmt.Errorf("error while ListContributors: %s", err)
+		return nil, fmt.Errorf("error while ListContributors: %w", err)
 	}
 
 	var shadowMembers []*github.Contributor
@@ -797,7 +797,7 @@ func (c *Client) ListLanguagesOfRepo(owner string, repo string) (map[string]int,
 
 		languages, resp, err = c.client.Repositories.ListLanguages(ctx, owner, repo)
 		if err != nil {
-			return fmt.Errorf("error while executing request: %s", err)
+			return fmt.Errorf("error while executing request: %w", err)
 		}
 		ResponseCallback(resp)
 		if handleRateLimitError(err, resp) {
@@ -847,7 +847,7 @@ func (c *Client) ListReposBylanguage(owner string, lang string) ([]*github.Repos
 
 			repos, resp, err = client.Search.Repositories(ctx, query, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -950,7 +950,7 @@ GetterLoop:
 
 			repos, resp, err = client.Search.Repositories(ctx, query, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -1073,7 +1073,7 @@ GetterLoop:
 
 			repos, resp, err = client.Search.Repositories(ctx, opts.Query, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
@@ -1162,7 +1162,7 @@ GetterLoop:
 
 			repos, resp, err = client.Search.Code(ctx, opts.Query, opt)
 			if err != nil {
-				return fmt.Errorf("error while executing request: %s", err)
+				return fmt.Errorf("error while executing request: %w", err)
 			}
 			ResponseCallback(resp)
 			if handleRateLimitError(err, resp) {
