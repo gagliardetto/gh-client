@@ -275,6 +275,46 @@ func (c *Client) GetUser(u string) (*github.User, error) {
 	return user, nil
 }
 
+func (c *Client) GetRepo(owner, repo string) (*github.Repository, error) {
+	var repository *github.Repository
+	var resp *github.Response
+	errs := RetryExponentialBackoff(5, time.Second, func() error {
+		var err error
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		repository, resp, err = c.client.Repositories.Get(ctx, owner, repo)
+		if err != nil {
+			return fmt.Errorf("error while executing request: %w", err)
+		}
+		ResponseCallback(resp)
+		if handleRateLimitError(err, resp) {
+			return err
+		}
+
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+			// TODO: catch rate limit error, and wait
+			return fmt.Errorf(
+				"status code is: %v (%s)",
+				resp.StatusCode,
+				resp.Status,
+			)
+		}
+		// nil on 200 and 404
+		return nil
+	})
+	if errs != nil && len(errs) > 0 {
+		return nil, errors.New(FormatErrorArray("", errs))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		// TODO: catch rate limit error, and wait
+		return nil, ErrNotFound
+	}
+
+	return repository, nil
+}
+
 ///
 
 func (c *Client) ListOfficialMembers(org string) ([]*github.User, error) {
