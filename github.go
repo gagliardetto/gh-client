@@ -42,6 +42,12 @@ func NewClient(token string) *Client {
 
 var ResponseCallback func(resp *github.Response)
 
+func onResponse(resp *github.Response) {
+	if ResponseCallback != nil {
+		ResponseCallback(resp)
+	}
+}
+
 func isRateLimitError(err error) bool {
 	_, ok := err.(*github.RateLimitError)
 	return ok
@@ -82,7 +88,7 @@ func (c *Client) ListReposByUser(user string) ([]*github.Repository, error) {
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -137,7 +143,7 @@ func (c *Client) ListReposByOrg(org string) ([]*github.Repository, error) {
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -206,7 +212,7 @@ func (c *Client) GetOrg(org string) (*github.Organization, error) {
 		if err != nil {
 			return fmt.Errorf("error while executing request: %w", err)
 		}
-		ResponseCallback(resp)
+		onResponse(resp)
 		if handleRateLimitError(err, resp) {
 			return err
 		}
@@ -248,7 +254,7 @@ func (c *Client) GetUser(u string) (*github.User, error) {
 		if err != nil {
 			return fmt.Errorf("error while executing request: %w", err)
 		}
-		ResponseCallback(resp)
+		onResponse(resp)
 		if handleRateLimitError(err, resp) {
 			return err
 		}
@@ -288,7 +294,7 @@ func (c *Client) GetRepo(owner, repo string) (*github.Repository, error) {
 		if err != nil {
 			return fmt.Errorf("error while executing request: %w", err)
 		}
-		ResponseCallback(resp)
+		onResponse(resp)
 		if handleRateLimitError(err, resp) {
 			return err
 		}
@@ -347,7 +353,7 @@ func (c *Client) ListOfficialMembers(org string) ([]*github.User, error) {
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -483,7 +489,7 @@ func (r *RepoExplorationRequest) WalkFiles(walker func(v *github.RepositoryConte
 	if err != nil {
 		panic(err)
 	}
-	ResponseCallback(resp)
+	onResponse(resp)
 	if handleRateLimitError(err, resp) {
 		return err
 	}
@@ -505,7 +511,7 @@ func (r *RepoExplorationRequest) walkFiles(content []*github.RepositoryContent, 
 			if err != nil {
 				return err
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -545,7 +551,7 @@ func (c *Client) ListOrgsOfUser(user string) ([]*github.Organization, error) {
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -605,7 +611,7 @@ func (c *Client) ListContributors(
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -697,7 +703,7 @@ PageLister:
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -839,7 +845,7 @@ func (c *Client) ListLanguagesOfRepo(owner string, repo string) (map[string]int,
 		if err != nil {
 			return fmt.Errorf("error while executing request: %w", err)
 		}
-		ResponseCallback(resp)
+		onResponse(resp)
 		if handleRateLimitError(err, resp) {
 			return err
 		}
@@ -889,7 +895,7 @@ func (c *Client) ListReposBylanguage(owner string, lang string) ([]*github.Repos
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -992,7 +998,7 @@ GetterLoop:
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -1159,7 +1165,7 @@ func (c *Client) SearchReposWithCallback(query string, callback func([]*github.R
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
@@ -1232,7 +1238,7 @@ GetterLoop:
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
-			ResponseCallback(resp)
+			onResponse(resp)
 			if handleRateLimitError(err, resp) {
 				return err
 			}
