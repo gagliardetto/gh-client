@@ -40,6 +40,18 @@ func NewClient(token string) *Client {
 	return c
 }
 
+func NewWithCustomClient(ghtcl *github.Client) *Client {
+	c := &Client{}
+
+	if ghtcl == nil {
+		panic("client not provided")
+	}
+
+	c.client = ghtcl
+
+	return c
+}
+
 var ResponseCallback func(resp *github.Response)
 
 func onResponse(resp *github.Response) {
