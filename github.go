@@ -1094,14 +1094,58 @@ func (c *Client) SearchRepos(opts *SearchReposOpts) ([]*github.Repository, error
 		return nil, err
 	}
 
+	var allRepos []*github.Repository
+
+	// Get all pages of results:
+	err := c.SearchReposWithCallback(opts.Query, func(repos []*github.Repository) bool {
+		for repIndex := range repos {
+			repo := repos[repIndex]
+			if repo.GetStargazersCount() < opts.MinStars {
+				continue
+			}
+			allRepos = append(allRepos, repo)
+
+			if opts.Limit > 0 && len(allRepos) >= opts.Limit {
+				return false
+			}
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return allRepos, nil
+}
+
+type SearchCodeOpts struct {
+	Query string
+	Limit int
+}
+
+// Validate validates SearchCodeOpts.
+func (opts *SearchCodeOpts) Validate() error {
+	if opts == nil {
+		return errors.New("opts is nil.")
+	}
+	if opts.Query == "" {
+		return errors.New("opts.Query not provided.")
+	}
+	return nil
+}
+
+// SearchReposWithCallback has the same functionality as SearchRepos, except the result pages are provided in a callback.
+func (c *Client) SearchReposWithCallback(query string, callback func([]*github.Repository) bool) error {
+	if query == "" {
+		return errors.New("query not provided.")
+	}
+
 	client := c.client
 
 	opt := &github.SearchOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
 	// get all pages of results
-	var allRepos []*github.Repository
-GetterLoop:
 	for {
 		var repos *github.RepositoriesSearchResult
 		var resp *github.Response
@@ -1111,7 +1155,7 @@ GetterLoop:
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancel()
 
-			repos, resp, err = client.Search.Repositories(ctx, opts.Query, opt)
+			repos, resp, err = client.Search.Repositories(ctx, query, opt)
 			if err != nil {
 				return fmt.Errorf("error while executing request: %w", err)
 			}
@@ -1132,46 +1176,30 @@ GetterLoop:
 			return nil
 		})
 		if errs != nil && len(errs) > 0 {
-			return nil, errors.New(FormatErrorArray("", errs))
+			return errors.New(FormatErrorArray("", errs))
 		}
 		if resp.StatusCode == http.StatusNotFound {
 			// TODO: catch rate limit error, and wait
-			return nil, ErrNotFound
+			return ErrNotFound
 		}
 
+		page := make([]*github.Repository, 0)
 		for repIndex := range repos.Repositories {
 			repo := &repos.Repositories[repIndex]
-			if repo.GetStargazersCount() < opts.MinStars {
-				continue
-			}
-			allRepos = append(allRepos, repo)
-
-			if opts.Limit > 0 && len(allRepos) >= opts.Limit {
-				break GetterLoop
-			}
+			page = append(page, repo)
 		}
+
+		doContinue := callback(page)
+		if !doContinue {
+			return nil
+		}
+
 		if resp.NextPage == 0 {
 			break
 		}
 		opt.Page = resp.NextPage
 	}
 
-	return allRepos, nil
-}
-
-type SearchCodeOpts struct {
-	Query string
-	Limit int
-}
-
-// Validate validates SearchCodeOpts.
-func (opts *SearchCodeOpts) Validate() error {
-	if opts == nil {
-		return errors.New("opts is nil.")
-	}
-	if opts.Query == "" {
-		return errors.New("opts.Query not provided.")
-	}
 	return nil
 }
 
