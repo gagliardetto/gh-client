@@ -1045,7 +1045,7 @@ GetterLoop:
 				latestStarCount = repo.GetStargazersCount()
 
 				allRepos = append(allRepos, repo)
-				storeIndex.OrderedAppend(id)
+				storeIndex.Add(id)
 
 				if opts.Limit > 0 && len(allRepos) >= opts.Limit {
 					break GetterLoop
