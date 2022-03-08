@@ -211,6 +211,105 @@ func addOptions(s string, opt interface{}) (string, error) {
 	return u.String(), nil
 }
 
+func (c *Client) GetPull(owner string, repo string, number int) (*github.PullRequest, error) {
+	var pull *github.PullRequest
+	var resp *github.Response
+	errs := RetryExponentialBackoff(5, time.Second, func() error {
+		var err error
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+
+		pull, resp, err = c.client.PullRequests.Get(ctx, owner, repo, number)
+		if err != nil {
+			return fmt.Errorf("error while executing request: %w", err)
+		}
+		onResponse(resp)
+		if handleRateLimitError(err, resp) {
+			return err
+		}
+
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+			// TODO: catch rate limit error, and wait
+			return fmt.Errorf(
+				"status code is: %v (%s)",
+				resp.StatusCode,
+				resp.Status,
+			)
+		}
+		// nil on 200 and 404
+		return nil
+	})
+	if errs != nil && len(errs) > 0 {
+		// TODO: fix this scenario in other getters, too.
+		if resp.StatusCode == http.StatusNotFound {
+			// TODO: catch rate limit error, and wait
+			return nil, ErrNotFound
+		}
+		return nil, errors.New(FormatErrorArray("", errs))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		// TODO: catch rate limit error, and wait
+		return nil, ErrNotFound
+	}
+
+	return pull, nil
+}
+
+func (c *Client) ListPulls(owner string, repo string) ([]*github.PullRequest, error) {
+	client := c.client
+
+	opt := &github.ListOptions{PerPage: 100}
+	// get all pages of results
+	var allPRs []*github.PullRequest
+	for {
+
+		var tmpPRs []*github.PullRequest
+		var resp *github.Response
+		errs := RetryExponentialBackoff(5, time.Second, func() error {
+			var err error
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+
+			tmpPRs, resp, err = client.PullRequests.List(ctx, owner, repo, &github.PullRequestListOptions{State: "closed", ListOptions: *opt})
+			if err != nil {
+				return fmt.Errorf("error while executing request: %w", err)
+			}
+			onResponse(resp)
+			if handleRateLimitError(err, resp) {
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusNoContent {
+				// TODO: catch rate limit error, and wait
+				return fmt.Errorf(
+					"status code is: %v (%s)",
+					resp.StatusCode,
+					resp.Status,
+				)
+			}
+			// nil on 200 and 404
+			return nil
+		})
+		if errs != nil && len(errs) > 0 {
+			return nil, errors.New(FormatErrorArray("", errs))
+		}
+		if resp.StatusCode == http.StatusNotFound {
+			// TODO: catch rate limit error, and wait
+			return nil, ErrNotFound
+		}
+
+		allPRs = append(allPRs, tmpPRs...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+	}
+
+	return allPRs, nil
+}
+
 func (c *Client) GetOrg(org string) (*github.Organization, error) {
 	var organization *github.Organization
 	var resp *github.Response
